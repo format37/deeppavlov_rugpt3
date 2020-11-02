@@ -1,8 +1,10 @@
+#!/usr/bin/python3
 import asyncio
 from aiohttp import web
 import pandas as pd
 from deeppavlov import build_model, configs
 from urllib.parse import unquote
+import subprocess
 
 WEBHOOK_PORT = 8081
 WEBHOOK_LISTEN = '0.0.0.0'  # In some VPS you may need to put here the IP addr
@@ -22,10 +24,25 @@ async def call_talk(request):
 			f.write('1')
 			f.close()
 		
+		# disable miner ++			
+		#sudo systemctl stop miner
+		MyOut = subprocess.Popen(
+			['systemctl', 'stop', 'miner_0'],
+			stdout=subprocess.PIPE, 
+			stderr=subprocess.STDOUT
+		)
+		stdout,stderr = MyOut.communicate()
+		print('disable miner', stdout.decode("utf-8"))
+		# disable miner --
+		
 		# main ++	
 		answer = ''
-		question = unquote( request.rel_url.query['question'] )
-		print('question',question)
+		group_id	= unquote( request.rel_url.query['group_id'	] )
+		user_id		= unquote( request.rel_url.query['user_id'	] )
+		question	= unquote( request.rel_url.query['question'	] )
+		print('group_id:',group_id)
+		print('user_id:',user_id)
+		print('question:',question)
 		df = pd.read_csv('/mnt/storage/share/alex/projects/deeppavlov_rugpt3/data.csv')
 		# select phrases
 		pre_words = question.replace("?","").split(" ")
@@ -57,10 +74,21 @@ async def call_talk(request):
 				answer = answers[answers.score==max_score].iloc[0].answer
 		# main --
 		
+		# enable miner ++			
+		#sudo systemctl stop miner
+		MyOut = subprocess.Popen(
+			['systemctl', 'start', 'miner_0'],
+			stdout=subprocess.PIPE, 
+			stderr=subprocess.STDOUT
+		)
+		stdout,stderr = MyOut.communicate()
+		print('enable miner', stdout.decode("utf-8"))
+		# enable miner --
+		
 		with open('/mnt/storage/share/alex/projects/deeppavlov_rugpt3/job.txt','w') as f:
 			f.write('0')
 			f.close()
-	
+	print('answer:',answer)
 	return web.Response(text=answer,content_type="text/html")
 
 model = build_model(configs.squad.squad_ru_rubert_infer, download=False)
